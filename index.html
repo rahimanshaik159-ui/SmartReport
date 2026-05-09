@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Smart Report – School Result Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F0EDE8;--surface:#FFFDF9;--surface2:#F5F2ED;--border:rgba(40,30,10,0.12);
+  --border2:rgba(40,30,10,0.22);--text:#1A1612;--text2:#6B6355;--text3:#9A9082;
+  --blue:#1B5FA8;--blue-l:#E8F0FC;--blue-d:#0D3D75;
+  --green:#0D7F5A;--green-l:#E3F5EE;--green-d:#085040;
+  --amber:#C07010;--amber-l:#FDF3E0;--amber-d:#7A4800;
+  --red:#C02828;--red-l:#FDEAEA;--red-d:#7A1818;
+  --radius:10px;--radius-lg:14px;--radius-xl:20px;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6;overflow-x:hidden;}
+
+/* ── Mobile Layout ── */
+.app-header { display: none; position: fixed; top: 0; left: 0; right: 0; height: 60px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 900; align-items: center; padding: 0 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.menu-btn { background: transparent; border: none; font-size: 26px; cursor: pointer; color: var(--blue); display: flex; align-items: center; justify-content: center; }
+.header-title { flex: 1; text-align: center; font-family: 'DM Serif Display', serif; font-size: 20px; margin-right: 26px; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 998; backdrop-filter: blur(2px); transition: opacity 0.3s; }
+
+/* ── Auth Screen ── */
+.auth-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem; background:var(--bg);}
+.auth-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-xl); padding:2.5rem; width:100%; max-width:440px; box-shadow:var(--shadow);}
+.brand-head{display:flex; align-items:center; gap:12px; margin-bottom:2rem; justify-content:center;}
+.brand-icon{width:44px; height:44px; background:var(--blue); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:22px;}
+.brand-name{font-family:'DM Serif Display',serif; font-size:22px; color:var(--text);}
+.role-pills{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:1.5rem;}
+.pill { padding: 10px; border: 1px solid var(--border2); border-radius: var(--radius); background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.pill.active { background: var(--blue-l); border-color: var(--blue); color: var(--blue-d); }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+.field input, .field select { width: 100%; padding: 12px; border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface); color: var(--text); font-family: inherit; outline: none; transition: .15s; }
+.field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.12); }
+.btn-login { width: 100%; padding: 12px; background: var(--blue); color: #fff; border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer; transition: .15s; }
+.auth-switch { text-align: center; margin-top: 1.5rem; font-size: 13px; color: var(--text2); }
+.auth-switch span { color: var(--blue); font-weight: 700; cursor: pointer; }
+
+/* ── App Shell ── */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 260px; background: var(--surface); height: 100vh; position: sticky; top: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 1000; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.sidebar-header { padding: 1.5rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.sidebar-user { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; background: var(--blue-l); color: var(--blue-d); }
+.nav-section { flex: 1; padding: 1rem 0.75rem; overflow-y: auto; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text2); border: none; background: transparent; width: 100%; text-align: left; transition: .12s; }
+.nav-item.active { background: var(--blue-l); color: var(--blue-d); }
+.sidebar-footer { padding: 1rem; border-top: 1px solid var(--border); }
+
+.content { flex: 1; padding: 2rem; min-width: 0; overflow-y: auto; }
+
+@media (max-width: 768px) {
+    .app-header { display: flex; }
+    .sidebar { position: fixed; transform: translateX(-100%); left: 0; top: 0; bottom: 0; width: 280px; }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open { display: block; }
+    .content { padding: 80px 1rem 2rem; }
+    .class-grid { grid-template-columns: repeat(5, 1fr) !important; }
+}
+
+/* ── UI Components ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--shadow); position: relative; }
+.page-title { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 0.25rem; }
+.page-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+.class-grid { display: grid; grid-template-columns: repeat(10,1fr); gap: 6px; margin-bottom: 1.5rem; }
+.class-btn { padding: 8px 4px; border: 1px solid var(--border2); border-radius: 8px; background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; text-align: center; color: var(--text2); }
+.class-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.exam-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 1.5rem; }
+.exam-tab { padding: 6px 14px; border: 1px solid var(--border2); border-radius: 20px; background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.exam-tab.active { background: var(--blue-l); border-color: var(--blue); color: var(--blue-d); }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.tbl td { padding: 12px 10px; border-bottom: 1px solid var(--border); }
+.num-input { width: 65px; padding: 6px; border: 1px solid var(--border2); border-radius: 7px; text-align: center; outline: none; }
+.num-input:focus { border-color: var(--blue); }
+
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
+.badge-A { background: var(--green-l); color: var(--green-d); }
+.badge-F { background: var(--red-l); color: var(--red-d); }
+.pbar-wrap { height: 6px; background: var(--border); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.pbar { height: 100%; border-radius: 3px; transition: width .4s ease; }
+
+.toggle { position: relative; width: 40px; height: 22px; display: inline-block; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; inset: 0; background: var(--border2); border-radius: 22px; transition: .3s; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
+input:checked + .slider { background: var(--green); }
+input:checked + .slider:before { transform: translateX(18px); }
+
+.toast { position: fixed; bottom: 2rem; left: 1.5rem; right: 1.5rem; padding: 12px 20px; background: #333; color: #fff; border-radius: 12px; text-align: center; z-index: 2000; box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: slideUp .3s; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* ── Result DASH ── */
+.welcome-card{background:var(--blue); border-radius:var(--radius-xl); padding:1.5rem; margin-bottom:1.5rem; color:#fff; position:relative; overflow:hidden;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  FIREBASE INITIALIZATION
+// ══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCZfrBcY_t7UVC72GEmH8uiUFmspTfCd9I",
+  authDomain: "smartreport-41063.firebaseapp.com",
+  projectId: "smartreport-41063",
+  storageBucket: "smartreport-41063.firebasestorage.app",
+  messagingSenderId: "769456503620",
+  appId: "1:769456503620:web:8f9f99516f54428163b511"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// ══════════════════════════════════════════════════════
+//  APP LOGIC & STATE
+// ══════════════════════════════════════════════════════
+const CLASSES = [1,2,3,4,5,6,7,8,9,10];
+const ALL_EXAMS = ['FA1','FA2','FA3','FA4','SA1','SA2'];
+const MAX_MARKS = { FA1:20, FA2:20, FA3:20, FA4:20, SA1:100, SA2:100 };
+const SUBJECTS_BY_CLASS = {};
+CLASSES.forEach(c => {
+  SUBJECTS_BY_CLASS[c] = c <= 5
+    ? ['Telugu','Hindi','English','Maths','Science','Social','GK']
+    : ['Telugu','Hindi','English','Maths','Physics','Biology','Social'];
+});
+
+let S = {
+  screen: 'loading', authMode: 'login', authRole: 'teacher',
+  sidebarOpen: false, tab: 'students', currentUser: null,
+  selClass: 1, selExam: 'FA1', students: [], grades: {},
+  teacherSecret: 'Teacher2026', // Fallback, will fetch from Firestore
+  toast: null
+};
+
+// ══════════════════════════════════════════════════════
+//  SYNC & HELPERS
+// ══════════════════════════════════════════════════════
+function startSync() {
+  db.collection('students').onSnapshot(snap => { S.students = snap.docs.map(d => ({...d.data(), id: d.id})); render(); });
+  db.collection('grades').onSnapshot(snap => { snap.docs.forEach(d => S.grades[d.id] = d.data()); render(); });
+  // Real-time sync the secret teacher code from database
+  db.collection('settings').doc('teacher_config').onSnapshot(doc => {
+    if (doc.exists) S.teacherSecret = doc.data().secretCode;
+    else db.collection('settings').doc('teacher_config').set({ secretCode: 'Teacher2026' });
+  });
+}
+
+function generatePassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let pass = "";
+  for (let i = 0; i < 6; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  return pass;
+}
+
+function getGrade(score, max){
+  const p = (score / max) * 100;
+  if (p >= 90) return 'A'; if (p >= 75) return 'B';
+  if (p >= 60) return 'C'; if (p >= 40) return 'D';
+  return 'F';
+}
+
+function scoreColor(p){ return p>=75?'#0D7F5A':p>=60?'#C07010':p>=40?'#D05010':'#C02828'; }
+
+// ══════════════════════════════════════════════════════
+//  AUTH STATE LISTENER
+// ══════════════════════════════════════════════════════
+auth.onAuthStateChanged(user => {
+  if (user) {
+    db.collection('users').doc(user.uid).get().then(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+        S.currentUser = { uid: user.uid, name: data.name || 'User', role: data.role || 'teacher', cls: data.cls, studentId: data.studentId };
+        S.screen = 'app';
+        S.tab = S.currentUser.role === 'teacher' ? 'students' : 'results';
+        startSync();
+      } else {
+        // Handle student simplified login context
+        if (S.currentUser && S.currentUser.role === 'student') {
+            S.screen = 'app';
+            startSync();
+        } else {
+            auth.signOut();
+        }
+      }
+    }).catch(err => auth.signOut());
+  } else {
+    S.screen = 'auth'; S.currentUser = null; S.sidebarOpen = false; startSync(); render();
+  }
+});
+
+// ══════════════════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ══════════════════════════════════════════════════════
+function render() {
+  const root = document.getElementById('root');
+  if (S.screen === 'loading') {
+    root.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center; color:var(--text3)">Connecting to Cloud...</div>';
+    return;
+  }
+  root.innerHTML = S.screen === 'auth' ? renderAuth() : renderApp();
+  attach();
+}
+
+function renderAuth() {
+  const isReg = S.authMode === 'register';
+  return `
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="brand-head">
+        <div style="background:var(--blue); color:white; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px"><i class="ti ti-school"></i></div>
+        <div style="font-family:'DM Serif Display'; font-size:24px; margin-left:12px">Smart Report</div>
+      </div>
+
+      <!-- Student registration removed -->
+      ${!isReg ? `
+      <div class="role-pills">
+        <button class="pill ${S.authRole==='teacher'?'active':''}" data-a="set-role" data-v="teacher">Teacher</button>
+        <button class="pill ${S.authRole==='student'?'active':''}" data-a="set-role" data-v="student">Student</button>
+      </div>` : ''}
+
+      ${isReg ? `
+        <div class="field"><label>Full Name</label><input id="reg-name" placeholder="Name"></div>
+        <div class="field"><label>Secret Teacher Code</label><input id="reg-secret" type="password" placeholder="Verify Registration"></div>
+      ` : ''}
+
+      <div class="field"><label>${S.authRole==='teacher'?'Teacher Email':'Student ID'}</label>
+        <input id="auth-id" placeholder="${S.authRole==='teacher'?'email@school.com':'e.g. S101'}"></div>
+      <div class="field"><label>Password</label>
+        <input id="auth-pw" type="password" placeholder="••••••"></div>
+
+      <button class="btn-login" data-a="auth-submit">${isReg ? 'Create Teacher Account' : 'Sign In'}</button>
+
+      <div class="auth-switch">
+        ${S.authRole==='teacher' ?
+          (isReg ? `Already have an account? <span data-a="toggle-auth">Login</span>` : `New teacher? <span data-a="toggle-auth">Register</span>`) :
+          'Students: Login with ID & teacher-provided password.'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderApp() {
+  const u = S.currentUser;
+  const isT = u.role==='teacher';
+  return `
+  <div class="app-header">
+    <button class="menu-btn" data-a="sidebar-toggle"><i class="ti ti-menu-2"></i></button>
+    <div class="header-title">Smart Report</div>
+  </div>
+  <div class="sidebar-overlay ${S.sidebarOpen?'open':''}" data-a="sidebar-toggle"></div>
+  <div class="layout">
+    <aside class="sidebar ${S.sidebarOpen?'open':''}">
+      <div class="sidebar-header"><div style="font-family:'DM Serif Display'; font-size:20px">Smart Report</div></div>
+      <div class="sidebar-user">
+        <div style="display:flex; align-items:center; gap:12px">
+          <div class="avatar">${u.name[0]}</div>
+          <div><div style="font-weight:600; font-size:13px">${u.name}</div><div style="font-size:11px; color:var(--text3)">${isT?'Teacher':'Class '+u.cls}</div></div>
+        </div>
+      </div>
+      <nav class="nav-section">
+        ${isT ? `
+          <button class="nav-item ${S.tab==='students'?'active':''}" data-a="tab" data-v="students"><i class="ti ti-users"></i> Students</button>
+          <button class="nav-item ${S.tab==='grades'?'active':''}" data-a="tab" data-v="grades"><i class="ti ti-pencil"></i> Enter Grades</button>
+          <button class="nav-item ${S.tab==='release'?'active':''}" data-a="tab" data-v="release"><i class="ti ti-eye"></i> Release Results</button>
+        ` : `<button class="nav-item active"><i class="ti ti-report-analytics"></i> My Results</button>`}
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item" data-a="logout" style="color:var(--red)"><i class="ti ti-logout"></i>Logout</button>
+      </div>
+    </aside>
+    <main class="content">
+      ${S.tab==='students'?renderStudents():(S.tab==='grades'?renderGrades():(S.tab==='release'?renderRelease():renderResults()))}
+    </main>
+  </div>
+  ${S.toast ? `<div class="toast">${S.toast}</div>` : ''}`;
+}
+
+function renderStudents() {
+  const list = S.students.filter(s => s.cls === S.selClass);
+  return `
+    <div class="page-title">Students</div>
+    <div class="page-sub">Manage Class Enrollment</div>
+    <div class="class-grid">${CLASSES.map(c => `<button class="class-btn ${S.selClass===c?'active':''}" data-a="set-class" data-v="${c}">Class ${c}</button>`).join('')}</div>
+    <div class="card" style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Name</th><th>ID</th><th>Password</th><th>Action</th></tr></thead>
+        <tbody>
+          ${list.map(s => `<tr><td>${s.name}</td><td>${s.id}</td><td><code style="background:var(--surface2); padding:2px 5px; border-radius:4px">${s.password || '—'}</code></td><td><button data-a="del-st" data-v="${s.id}" style="border:none; color:var(--red); background:none; cursor:pointer"><i class="ti ti-trash"></i></button></td></tr>`).join('')}
+          ${list.length===0?'<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text3)">Empty Class</td></tr>':''}
+        </tbody>
+      </table>
+    </div>
+    <div class="card"><div style="font-weight:600; margin-bottom:1rem">Enroll New Student</div>
+      <div class="field"><label>Full Name</label><input id="add-name" placeholder="Name"></div>
+      <div class="field"><label>Student ID</label><input id="add-id" placeholder="e.g. S101"></div>
+      <button class="btn-login" style="background:var(--green)" data-a="add-student">Enroll & Gen Password</button>
+    </div>`;
+}
+
+function renderGrades() {
+  const subs = SUBJECTS_BY_CLASS[S.selClass];
+  const list = S.students.filter(s => s.cls === S.selClass);
+  return `
+    <div class="page-title">Enter Grades</div>
+    <div class="class-grid">${CLASSES.map(c => `<button class="class-btn ${S.selClass===c?'active':''}" data-a="set-class" data-v="${c}">Class ${c}</button>`).join('')}</div>
+    <div class="exam-tabs">${ALL_EXAMS.map(e => `<button class="class-btn ${S.selExam===e?'active':''}" data-a="set-exam" data-v="${e}">${e}</button>`).join('')}</div>
+    <div class="card" style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Student</th>${subs.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${list.map(st => `<tr><td>${st.name}</td>${subs.map(sub => {
+            const val = S.grades[st.id]?.[sub]?.[S.selExam]?.score || '';
+            return `<td><input type="number" class="num-input" data-a="set-mark" data-sid="${st.id}" data-sub="${sub}" value="${val}"></td>`;
+          }).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderRelease() {
+  const list = S.students.filter(s => s.cls === S.selClass);
+  return `
+    <div class="page-title">Release Results</div>
+    <div class="class-grid">${CLASSES.map(c => `<button class="class-btn ${S.selClass===c?'active':''}" data-a="set-class" data-v="${c}">Class ${c}</button>`).join('')}</div>
+    <div class="exam-tabs">${ALL_EXAMS.map(e => `<button class="class-btn ${S.selExam===e?'active':''}" data-a="set-exam" data-v="${e}">${e}</button>`).join('')}</div>
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>Student</th><th>Action</th></tr></thead>
+        <tbody>
+          ${list.map(st => {
+            const firstSub = SUBJECTS_BY_CLASS[S.selClass][0];
+
+const rel =
+S.grades[st.id]?.[firstSub]?.[S.selExam]?.released || false;
+            return `<tr><td>${st.name}</td><td><label class="toggle"><input type="checkbox" ${rel?'checked':''} data-a="tog-rel" data-sid="${st.id}"><span class="slider"></span></label></td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderResults() {
+  const u = S.currentUser;
+  const subs = SUBJECTS_BY_CLASS[u.cls];
+  return `
+    <div class="page-title">My Report Card</div>
+    <div class="welcome-card">
+      <div style="font-family:'DM Serif Display'; font-size:24px">Hello, ${u.name}!</div>
+      <div style="opacity:0.8; font-size:13px">Class ${u.cls} Result Portal</div>
+    </div>
+    ${subs.map(sub => {
+      const g = S.grades[u.studentId]?.[sub] || {};
+      const relExams = ALL_EXAMS.filter(e =>
+        g[e]?.released
+      );
+      return `<div class="card">
+        <div style="font-weight:700; margin-bottom:12px">${sub}</div>
+        ${relExams.length ? relExams.map(e => {
+          const score = g[e]?.score ?? '-'; const max = MAX_MARKS[e];
+          const letter = getGrade(score, max);
+          const p = Math.round((score/max)*100);
+          return `<div style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px">
+            <div style="display:flex; justify-content:space-between; font-size:13px"><span>${e}</span><span class="badge badge-A">${score} / ${max}</span></div>
+            <div class="pbar-wrap"><div class="pbar" style="width:${p}%; background:var(--blue)"></div></div>
+          </div>`;
+        }).join('') : '<div style="color:var(--text3); font-size:12px">No results released yet.</div>'}
+      </div>`;
+    }).join('')}`;
+}
+
+// ══════════════════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════════════════
+function attach() {
+  document.onclick = e => {
+    const el = e.target.closest('[data-a]');
+    if (!el) return;
+    const { a, v, sid, sub } = el.dataset;
+
+    if (a === 'sidebar-toggle') { S.sidebarOpen = !S.sidebarOpen; render(); }
+    if (a === 'set-role') { S.authRole = v; S.authError=''; render(); }
+    if (a === 'toggle-auth') {
+        S.authMode = S.authMode==='login'?'register':'login';
+        if(S.authMode === 'register') S.authRole = 'teacher';
+        render();
+    }
+    if (a === 'tab') { S.tab = v; S.sidebarOpen = false; render(); }
+    if (a === 'set-class') { S.selClass = parseInt(v); render(); }
+    if (a === 'set-exam') { S.selExam = v; render(); }
+    if (a === 'logout') {
+        auth.signOut().then(() => {
+            S.screen = 'auth'; S.currentUser = null; S.sidebarOpen = false; render();
+        });
+    }
+
+    if (a === 'auth-submit') {
+      const id = document.getElementById('auth-id').value;
+      const pw = document.getElementById('auth-pw').value;
+      if (S.authMode === 'register') {
+        const name = document.getElementById('reg-name').value;
+        const secret = document.getElementById('reg-secret').value;
+        if(secret !== S.teacherSecret) return toast("Invalid Teacher Code!", "error");
+        auth.createUserWithEmailAndPassword(id, pw).then(cred => {
+          db.collection('users').doc(cred.user.uid).set({ name, role: 'teacher', email: id });
+        }).catch(err => toast(err.message));
+      } else {
+        if(S.authRole==='teacher') auth.signInWithEmailAndPassword(id, pw).catch(err => toast(err.message));
+        else {
+          db.collection('students').doc(id).get().then(doc => {
+            if (doc.exists && pw === doc.data().password) {
+               const d = doc.data();
+               // Manual state set for student as they don't have Firebase Auth accounts by default
+               S.currentUser = { name: d.name, role: 'student', cls: d.cls, studentId: id };
+               S.screen = 'app'; S.tab = 'results'; startSync();
+            } else toast("Invalid ID or Password.");
+          });
+        }
+      }
+    }
+
+    if (a === 'add-student') {
+      const name = document.getElementById('add-name').value, id = document.getElementById('add-id').value;
+      if(!name || !id) return toast("Fields required");
+      const password = generatePassword();
+      db.collection('students').doc(id).set({ name, id, cls: S.selClass, password }).then(() => toast('Added! Pass: ' + password));
+    }
+    if (a === 'del-st') db.collection('students').doc(v).delete().then(() => toast('Removed'));
+   if (a === 'tog-rel') {
+
+const checkbox = el.closest('label').querySelector('input');
+
+setTimeout(() => {
+
+const isChecked = checkbox.checked;
+
+const subs = SUBJECTS_BY_CLASS[S.selClass];
+
+subs.forEach(sub => {
+
+db.collection('grades').doc(el.dataset.sid).set({
+[sub]: {
+[S.selExam]: {
+released: isChecked
+}
+}
+}, { merge: true });
+
+});
+
+toast(isChecked ? 'Results Released' : 'Results Hidden');
+
+}, 50);
+
+}
+  };
+
+  document.onchange = e => {
+    const el = e.target;
+    if (el.dataset.a === 'set-mark') {
+      const { sid, sub } = el.dataset;
+      db.collection('grades').doc(el.dataset.sid).set({ [el.dataset.sub]: { [S.selExam]: { score: parseInt(el.value) || 0 } } }, { merge: true });
+    }
+  };
+}
+
+function toast(m, type="info") { S.toast = m; render(); setTimeout(() => { S.toast = null; render(); }, 2500); }
+
+render();
+</script>
+</body>
+</html>
